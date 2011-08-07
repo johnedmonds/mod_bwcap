@@ -108,9 +108,6 @@ static apr_status_t mod_bwcap_post_config(apr_pool_t *p, apr_pool_t *plog,
     state = (modbwcap_state*)apr_shm_baseaddr_get(mem);
     state->used_bandwidth=0;
     
-    fprintf(stderr,"Here%x\n",state);
-    fflush(stderr);
-    
     return OK;
 }
 
