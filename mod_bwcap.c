@@ -129,23 +129,10 @@ static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
     cfg->bandwidth_cap = 0;
     cfg->scoreboard = "scoreboard";
     cfg->p = p;
-    
-    return cfg;
-}
-
-/*
- * Happens after finished configuring.  Allocates the shared memory for state.
- */
-static apr_status_t mod_bwcap_post_config(apr_pool_t *p, apr_pool_t *plog,
-    apr_pool_t *ptmp, server_rec *s)
-{
-    modbwcap_config *cfg = ap_get_module_config(s->module_config,
-        &mod_bwcap_module);
-        
     apr_global_mutex_create(&cfg->scoreboard_mutex,
         "mod_bwcap_scoreboard_mutex", APR_LOCK_DEFAULT, cfg->p);
-
-    return OK;
+        
+    return cfg;
 }
 
 static const char *set_modbwcap_bandwidth_cap(cmd_parms *params, void *mconfig,
@@ -173,7 +160,6 @@ static const char *set_modbwcap_scoreboard_file(cmd_parms *params, void *mconfig
  */
 static void mod_bwcap_register_hooks(apr_pool_t *p)
 {
-    ap_hook_post_config(mod_bwcap_post_config, NULL, NULL, APR_HOOK_FIRST);
     ap_register_output_filter("mod_bwcap", mod_bwcap_filter, NULL, AP_FTYPE_TRANSCODE);
     ap_hook_handler(mod_bwcap_method_handler, NULL, NULL, APR_HOOK_REALLY_FIRST);
     ap_hook_insert_filter(mod_bwcap_insert_filter, NULL, NULL, APR_HOOK_FIRST);
