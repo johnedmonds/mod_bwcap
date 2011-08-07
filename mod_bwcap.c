@@ -5,7 +5,10 @@
 module AP_MODULE_DECLARE_DATA mod_bwcap_module;
 
 typedef struct {
+    /*The number of bytes to send before sending 503s.*/
     long long bandwidth_cap;
+    /*Path to file where we should store the amount of data sent.*/
+    char *scoreboard;
 } modbwcap_config;
 
 /*
@@ -52,7 +55,7 @@ static int mod_bwcap_method_handler (request_rec *r)
 static void mod_bwcap_register_hooks(apr_pool_t *p)
 {
     ap_register_output_filter("mod_bwcap", mod_bwcap_filter, NULL, AP_FTYPE_TRANSCODE);
-    ap_hook_handler(mod_bwcap_method_handler, NULL, NULL, APR_HOOK_LAST);
+    ap_hook_handler(mod_bwcap_method_handler, NULL, NULL, APR_HOOK_REALLY_FIRST);
 }
 
 static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
@@ -75,6 +78,13 @@ static const char *set_modbwcap_bandwidth_cap(cmd_parms *params, void *mconfig,
 
 static const command_rec mod_bwcap_cmds[] =
 {
+    AP_INIT_TAKE1(
+        "ModuleBWCapBandwidthCap",
+        set_modbwcap_bandwidth_cap,
+        NULL,
+        RSRC_CONF,
+        "ModuleBWCapBandwidthCap the maximum number of bytes before we start sending 503s."
+    ),
     AP_INIT_TAKE1(
         "ModuleBWCapBandwidthCap",
         set_modbwcap_bandwidth_cap,
