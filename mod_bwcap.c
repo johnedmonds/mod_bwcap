@@ -45,8 +45,15 @@ static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
  */
 static int mod_bwcap_method_handler (request_rec *r)
 {
-    ap_add_output_filter("mod_bwcap", NULL, r, r->connection);
     return DECLINED;
+}
+
+/*
+ * Called to insert the filter that counts the number of bytes.
+ */
+static int mod_bwcap_insert_filter(request_rec *r)
+{
+    ap_add_output_filter("mod_bwcap", NULL, r, r->connection);
 }
 
 /*
@@ -56,6 +63,7 @@ static void mod_bwcap_register_hooks(apr_pool_t *p)
 {
     ap_register_output_filter("mod_bwcap", mod_bwcap_filter, NULL, AP_FTYPE_TRANSCODE);
     ap_hook_handler(mod_bwcap_method_handler, NULL, NULL, APR_HOOK_REALLY_FIRST);
+    ap_hook_insert_filter(mod_bwcap_insert_filter, NULL, NULL, APR_HOOK_FIRST);
 }
 
 static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
