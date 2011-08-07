@@ -14,6 +14,8 @@ Simply run `make` in the root directory.  This will compile *and* install the mo
 
     ModuleBWCapBandwidthCap 100 #Caps bandwidth at 100 bytes.
 
-    #Stores the scoreboard file in your home directory.
-    #The scoreboard file is required so that we have a place to remember the amount of bandwidth used between server restarts.
+    # Stores the scoreboard file in your home directory.
+    # The scoreboard file is required
+    # This file is where we write the amount of bandwidth used so it can
+    # survive server restarts.
     ModuleBWCapScoreboardFile ~/scoreboard
