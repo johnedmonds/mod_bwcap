@@ -1,0 +1,15 @@
+# Introduction
+
+mod_bwcap is a very simple module for capping bandwidth in Apache 2.x.
+
+Bandwidth is measured for all outgoing traffic on the server and when a (configurable) threshold is met, mod_bwcap starts returning 503s (service unavailable) for all requests.
+
+I wrote mod_bwcap so I could have an extremely simple way to cap bandwidth for my entire server.  modbw_cap would be useful in a situation where you may be required to pay huge amounts of money if your hosted application serves more data than you expected.
+
+# Installing
+
+Simply run `make` in the root directory.  This will compile *and* install the module into httpd.  Make sure you have `apxs` in your `PATH` (`apxs` lives in the `bin/` directory of your httpd installation).
+
+# Configuration (httpd.conf)
+
+    ModuleBWCapBandwidthCap 100 #Caps bandwidth at 100 bytes.
