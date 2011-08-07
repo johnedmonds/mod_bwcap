@@ -89,6 +89,16 @@ static const char *set_modbwcap_bandwidth_cap(cmd_parms *params, void *mconfig,
     return NULL;
 }
 
+static const char *set_modbwcap_scoreboard_file(cmd_parms *params, void *mconfig,
+    const char *arg)
+{
+    modbwcap_config *cfg = ap_get_module_config(params->server->module_config,
+        &mod_bwcap_module);
+    cfg->scoreboard = arg;
+
+    return NULL;
+}
+
 static const command_rec mod_bwcap_cmds[] =
 {
     AP_INIT_TAKE1(
@@ -99,11 +109,11 @@ static const command_rec mod_bwcap_cmds[] =
         "ModuleBWCapBandwidthCap the maximum number of bytes before we start sending 503s."
     ),
     AP_INIT_TAKE1(
-        "ModuleBWCapBandwidthCap",
+        "ModuleBWCapScoreboardFile",
         set_modbwcap_bandwidth_cap,
         NULL,
         RSRC_CONF,
-        "ModuleBWCapBandwidthCap the maximum number of bytes before we start sending 503s."
+        "ModuleBWCapScoreboardFile Where to store state information about the total bandwidth used."
     ),
     {NULL}
 };
