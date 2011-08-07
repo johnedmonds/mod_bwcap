@@ -139,7 +139,6 @@ static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
 static apr_status_t mod_bwcap_post_config(apr_pool_t *p, apr_pool_t *plog,
     apr_pool_t *ptmp, server_rec *s)
 {
-    FILE *f;
     modbwcap_config *cfg = ap_get_module_config(s->module_config,
         &mod_bwcap_module);
         
