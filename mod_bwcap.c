@@ -76,6 +76,7 @@ static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
     modbwcap_config *cfg=
         (modbwcap_config*)apr_pcalloc(p, sizeof(modbwcap_config));
     cfg->bandwidth_cap=0;
+    cfg->scoreboard="mod_bwcap_scoreboard";
     return cfg;
 }
 
