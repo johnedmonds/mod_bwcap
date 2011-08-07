@@ -20,6 +20,16 @@ typedef struct {
 } modbwcap_state;
 
 /*
+ * Convenience method for getting the current state.
+ * Sets mem to the apr_shm_t used.  This is not a required paramter.
+ */
+static modbwcap_state *mod_bwcap_get_state(modbwcap_config *cfg, apr_shm_t **mem)
+{
+    apr_shm_attach(&mem,cfg->scoreboard, cfg->p);
+    return apr_shm_baseaddr_get(mem);
+}
+
+/*
  * Handles counting the number of bytes.
  */
 static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
@@ -31,9 +41,8 @@ static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     apr_shm_t *mem;
     modbwcap_config *cfg = ap_get_module_config(f->r->server->module_config,
         &mod_bwcap_module);
-        
-    apr_shm_attach(&mem, cfg->scoreboard, cfg->p);
-    state=apr_shm_baseaddr_get(mem);
+    
+    state = mod_bwcap_get_state(cfg, &mem);
     
     long long bucket_size=0;
     
@@ -61,7 +70,7 @@ static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     fprintf(stderr,"total bandwidth used:%d\n", state->used_bandwidth);
     fflush(stderr);
     
-
+    apr_shm_detach(mem);
     
     return ap_pass_brigade(f->next, bb);
 }
@@ -71,7 +80,17 @@ static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
  */
 static int mod_bwcap_method_handler (request_rec *r)
 {
-    return DECLINED;
+    apr_shm_t *mem;
+    modbwcap_state *state;
+    modbwcap_config *cfg = ap_get_module_config(r->server->module_config,
+        &mod_bwcap_module);
+
+    state = mod_bwcap_get_state(cfg, &mem);
+    
+    if (state->used_bandwidth > cfg->bandwidth_cap)
+        return 503;
+    else
+        return DECLINED;
 }
 
 /*
