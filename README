@@ -19,3 +19,9 @@ Simply run `make` in the root directory.  This will compile *and* install the mo
     # This file is where we write the amount of bandwidth used so it can
     # survive server restarts.
     ModuleBWCapScoreboardFile ~/scoreboard
+
+# Notes
+
+We don't currently have a method for resetting the amount of bandwidth used.
+Perhaps the best way to reset is to have a cron job that deletes the scoreboard
+file every time you want to reset the bandwidth back to 0.
