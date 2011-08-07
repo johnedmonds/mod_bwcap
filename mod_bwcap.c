@@ -11,6 +11,11 @@ typedef struct {
     char *scoreboard;
 } modbwcap_config;
 
+typedef struct {
+    /*The number of bytes sent so far.*/
+    long long used_bandwidth;
+} modbwcap_state;
+
 /*
  * Handles counting the number of bytes.
  */
