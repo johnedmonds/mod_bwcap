@@ -2,6 +2,15 @@
 #include "http_config.h"
 #include "util_filter.h"
 
+module AP_MODULE_DECLARE_DATA mod_bwcap_module;
+
+typedef struct {
+    long long bandwidth_cap;
+} modbwcap_config;
+
+/*
+ * Handles counting the number of bytes.
+ */
 static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
     apr_bucket *b;
@@ -27,28 +36,63 @@ static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     fflush(stderr);
     return ap_pass_brigade(f->next, bb);
 }
+/*
+ * Handles the request by registering the filter that counts bytes.
+ * Also cancelles the request if the number of bytes is exceeded.
+ */
 static int mod_bwcap_method_handler (request_rec *r)
 {
     ap_add_output_filter("mod_bwcap", NULL, r, r->connection);
-    fprintf(stderr,"apache2_mod_bwcap:handling request.\n");
-    fflush(stderr);
     return DECLINED;
 }
 
+/*
+ * Registers hooks and filters to httpd.
+ */
 static void mod_bwcap_register_hooks(apr_pool_t *p)
 {
     ap_register_output_filter("mod_bwcap", mod_bwcap_filter, NULL, AP_FTYPE_TRANSCODE);
     ap_hook_handler(mod_bwcap_method_handler, NULL, NULL, APR_HOOK_LAST);
 }
 
+static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
+{
+    modbwcap_config *cfg=
+        (modbwcap_config*)apr_pcalloc(p, sizeof(modbwcap_config));
+    cfg->bandwidth_cap=0;
+    return cfg;
+}
+
+static const char *set_modbwcap_bandwidth_cap(cmd_parms *params, void *mconfig,
+    const char *arg)
+{
+    modbwcap_config *cfg = ap_get_module_config(params->server->module_config,
+        &mod_bwcap_module);
+    cfg->bandwidth_cap = atoi(arg);
+
+    return NULL;
+}
+
+static const command_rec mod_bwcap_cmds[] =
+{
+    AP_INIT_TAKE1(
+        "ModuleBWCapBandwidthCap",
+        set_modbwcap_bandwidth_cap,
+        NULL,
+        RSRC_CONF,
+        "ModuleBWCapBandwidthCap the maximum number of bytes before we start sending 503s."
+    ),
+    {NULL}
+};
+
 module AP_MODULE_DECLARE_DATA mod_bwcap_module =
 {
     STANDARD20_MODULE_STUFF,
     NULL,
     NULL,
+    mod_bwcap_create_server_config,
     NULL,
-    NULL,
-    NULL,
+    mod_bwcap_cmds,
     mod_bwcap_register_hooks
 };
 
