@@ -91,9 +91,7 @@ static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
         }
     }
 
-    fprintf(stderr, "bucket size:%d\n", bucket_size);
-    fprintf(stderr, "total bandwidth used:%d\n", mod_bwcap_update_state(bucket_size, cfg));
-    fflush(stderr);
+    mod_bwcap_update_state(bucket_size, cfg);
     
     return ap_pass_brigade(f->next, bb);
 }
@@ -129,7 +127,7 @@ static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
     modbwcap_config *cfg=
         (modbwcap_config*)apr_pcalloc(p, sizeof(modbwcap_config));
     cfg->bandwidth_cap = 0;
-    cfg->scoreboard = NULL;
+    cfg->scoreboard = "scoreboard";
     cfg->p = p;
     
     return cfg;
