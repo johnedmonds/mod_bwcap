@@ -1,7 +1,8 @@
+#include <assert.h>
 #include "httpd.h"
 #include "http_config.h"
 #include "util_filter.h"
-#include "apr_shm.h"
+#include "apr_global_mutex.h"
 
 module AP_MODULE_DECLARE_DATA mod_bwcap_module;
 
@@ -12,6 +13,8 @@ typedef struct {
     char *scoreboard;
     /*The pool used to create the shared memory.*/
     apr_pool_t *p;
+    /*The mutex used to control access to the scoreboard.*/
+    apr_global_mutex_t *scoreboard_mutex;
 } modbwcap_config;
 
 typedef struct {
@@ -20,13 +23,40 @@ typedef struct {
 } modbwcap_state;
 
 /*
- * Convenience method for getting the current state.
- * Sets mem to the apr_shm_t used.  This is not a required paramter.
+ * Reads the state stored in the file, writes back the updates, and closes the
+ * file.
+ *
+ * Although this function will work on any endian, it is not portable between
+ * endianness (you can't move the written file to a machine with a different
+ * endianness).
+ *
+ * Returns the total number of bytes used.
  */
-static modbwcap_state *mod_bwcap_get_state(modbwcap_config *cfg, apr_shm_t **mem)
+static long long mod_bwcap_update_state(long long bytes_sent, modbwcap_config *cfg)
 {
-    apr_shm_attach(&mem,cfg->scoreboard, cfg->p);
-    return apr_shm_baseaddr_get(mem);
+    modbwcap_state state;
+    state.used_bandwidth = 0;
+    FILE *f;
+    
+    assert(bytes_sent >= 0);
+    
+    apr_global_mutex_lock(cfg->scoreboard_mutex);
+    f = fopen(cfg->scoreboard, "r");
+    if(f)
+    {
+        fread(&state, sizeof(modbwcap_state), 1, f);
+        state.used_bandwidth += bytes_sent;
+        fclose(f);
+    }
+    /*Optimization.  Only write if something has changed.*/
+    if (bytes_sent > 0)
+    {
+        f = fopen(cfg->scoreboard, "w");
+        fwrite(&state, sizeof(modbwcap_state), 1, f);
+        fclose(f);        
+    }
+    apr_global_mutex_unlock(cfg->scoreboard_mutex);
+    return state.used_bandwidth;
 }
 
 /*
@@ -37,12 +67,8 @@ static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     apr_bucket *b;
     apr_status_t rv;
     
-    modbwcap_state *state;
-    apr_shm_t *mem;
     modbwcap_config *cfg = ap_get_module_config(f->r->server->module_config,
         &mod_bwcap_module);
-    
-    state = mod_bwcap_get_state(cfg, &mem);
     
     long long bucket_size=0;
     
@@ -64,30 +90,26 @@ static int mod_bwcap_filter(ap_filter_t *f, apr_bucket_brigade *bb)
             bucket_size=b->length;
         }
     }
-    state->used_bandwidth += bucket_size;
-    
-    fprintf(stderr,"bucket size:%d\n",bucket_size);
-    fprintf(stderr,"total bandwidth used:%d\n", state->used_bandwidth);
+
+    fprintf(stderr, "bucket size:%d\n", bucket_size);
+    fprintf(stderr, "total bandwidth used:%d\n", mod_bwcap_update_state(bucket_size, cfg));
     fflush(stderr);
-    
-    apr_shm_detach(mem);
     
     return ap_pass_brigade(f->next, bb);
 }
+
 /*
  * Handles the request by registering the filter that counts bytes.
  * Also cancelles the request if the number of bytes is exceeded.
  */
 static int mod_bwcap_method_handler (request_rec *r)
 {
-    apr_shm_t *mem;
-    modbwcap_state *state;
     modbwcap_config *cfg = ap_get_module_config(r->server->module_config,
         &mod_bwcap_module);
 
-    state = mod_bwcap_get_state(cfg, &mem);
+    long long used_bandwidth = mod_bwcap_update_state(0, cfg);
     
-    if (state->used_bandwidth > cfg->bandwidth_cap)
+    if (used_bandwidth > cfg->bandwidth_cap)
         return 503;
     else
         return DECLINED;
@@ -99,6 +121,7 @@ static int mod_bwcap_method_handler (request_rec *r)
 static int mod_bwcap_insert_filter(request_rec *r)
 {
     ap_add_output_filter("mod_bwcap", NULL, r, r->connection);
+    return OK;
 }
 
 static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
@@ -118,15 +141,13 @@ static void *mod_bwcap_create_server_config(apr_pool_t *p, server_rec *s)
 static apr_status_t mod_bwcap_post_config(apr_pool_t *p, apr_pool_t *plog,
     apr_pool_t *ptmp, server_rec *s)
 {
-    apr_shm_t *mem=NULL;
-    modbwcap_state *state=NULL;
+    FILE *f;
     modbwcap_config *cfg = ap_get_module_config(s->module_config,
         &mod_bwcap_module);
+        
+    apr_global_mutex_create(&cfg->scoreboard_mutex,
+        "mod_bwcap_scoreboard_mutex", APR_LOCK_DEFAULT, cfg->p);
 
-    apr_shm_create(&mem, sizeof(modbwcap_state), cfg->scoreboard, cfg->p);
-    state = (modbwcap_state*)apr_shm_baseaddr_get(mem);
-    state->used_bandwidth=0;
-    
     return OK;
 }
 
@@ -135,7 +156,7 @@ static const char *set_modbwcap_bandwidth_cap(cmd_parms *params, void *mconfig,
 {
     modbwcap_config *cfg = ap_get_module_config(params->server->module_config,
         &mod_bwcap_module);
-    cfg->bandwidth_cap = atoi(arg);
+    cfg->bandwidth_cap = atol(arg);
 
     return NULL;
 }
